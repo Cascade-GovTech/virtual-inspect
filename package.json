@@ -1,0 +1,15 @@
+{
+  "name": "wrtc-stream",
+  "version": "1.0.0",
+  "description": "P2P streaming with Web RTC",
+  "main": "main.js",
+  "type": "module",
+  "scripts": {
+    "start": "node main.js"
+  },
+  "author": "Rob Godfrey",
+  "license": "ISC",
+  "dependencies": {
+    "ws": "^8.13.0"
+  }
+}

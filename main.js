@@ -1,32 +1,15 @@
-let localStream;
-let remoteStream;
-let peerConnection;
+import WebSocket, { WebSocketServer } from 'ws';
 
-const servers = {
-  iceServers: [
-    {
-      urls: ['stun:stun1.l.google.com:19302', 'stun:stun2.l.google.com:19302'],
-    },
-  ],
-};
+const wss = new WebSocketServer({ port: 8080 });
 
-const init = async () => {
-  localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
-  document.getElementById('user-1').srcObject = localStream;
-  createOffer();
-};
+wss.on('connection', (ws) => {
+  console.log('User connected');
+  let data;
 
-const createOffer = async () => {
-  peerConnection = new RTCPeerConnection(servers);
-  remoteStream = new MediaStream();
+  ws.on('error', console.error);
 
-  document.getElementById('user-2').srcObject = remoteStream;
+  ws.on('message', (data) => console.log(`received ${data}`));
 
-  let offer = await peerConnection.createOffer();
-  await peerConnection.setLocalDescription(offer);
+  ws.send('connected');
+});
 
-  console.log('Offer:');
-  console.log(offer);
-};
-
-init();
