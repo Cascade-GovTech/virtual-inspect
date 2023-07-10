@@ -15,6 +15,7 @@ function sendTo(connection, msg) {
 app.use(express.json());
 app.set('view engine', 'ejs');
 app.use(express.static(`${url.fileURLToPath(new URL('.', import.meta.url))}/js`));
+app.use(express.static(`${url.fileURLToPath(new URL('.', import.meta.url))}/public`));
 
 console.log();
 
@@ -67,14 +68,14 @@ socket.on('connection', (ws) => {
         user = users[data.name];
         if (user) {
           ws.remoteUser = data.name;
-          sendTo(user, { type: 'answer', offer: data.answer, name: ws.name });
+          sendTo(user, { type: 'answer', answer: data.answer, name: ws.name });
         }
         break;
       case 'candidate':
         console.log(`Sending candidate to user "${data.name}"`);
         user = users[data.name];
         if (user) {
-          sendTo(user, { type: 'candidate', offer: data.candidate });
+          sendTo(user, { type: 'candidate', candidate: data.candidate });
         }
         break;
       case 'leave':
@@ -84,7 +85,12 @@ socket.on('connection', (ws) => {
           sendTo(user, { type: 'leave' });
         }
         break;
+      case 'status':
+        console.log('Got a status message ^');
+        break;
       default:
+        console.log(data.type)
+        console.log('idk what to do!')
         sendTo(ws, { type: 'error', message: `Command not found: "${data.type}"` });
         break;
     }

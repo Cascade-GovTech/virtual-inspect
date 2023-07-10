@@ -21,12 +21,7 @@ function send(message) {
   socket.send(JSON.stringify(message));
 }
 
-const createOffer = async (success) => {
-  localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
-  if (!success) {
-    alert('Unable to create offer');
-    return;
-  }
+const createPeerConnection = async () => {
   peerConnection = new RTCPeerConnection(servers);
   remoteStream = new MediaStream();
 
@@ -48,23 +43,43 @@ const createOffer = async (success) => {
       send({ type: 'candidate', candidate: event.candidate });
     }
   }
+};
+
+const createOffer = async (success) => {
+  if (!success) {
+    alert('Unable to create offer');
+    return;
+  }
+  await createPeerConnection();
   let offer = await peerConnection.createOffer();
   await peerConnection.setLocalDescription(offer);
 
   console.log('Offer:');
   console.log(offer);
+
+  send({ type: 'offer', offer: offer });
+};
+
+const createAnswer = async (offer) => {
+  await createPeerConnection();
+  await peerConnection.setRemoteDescription(offer);
+
+  const answer = await peerConnection.createAnswer();
+  await peerConnection.setLocalDescription(answer);
+
+  send({ type: 'answer', answer: answer });
 };
 
 socket.addEventListener('open', () => {
   console.log('WS connection established');
   socketConnected = true;
   socket.send(JSON.stringify({
-    message: 'Confirmed connection'
+    type: 'status',
+    message: 'Confirmed connection',
   }));
 })
 
 socket.addEventListener('message', ({ data }) => {
-  console.log(data)
   const packet = JSON.parse(data);
   console.log(packet);
 
@@ -99,4 +114,10 @@ socket.addEventListener('close', () => {
   socket.close();
 });
 
-createOffer(true)
+const init = async () => {
+  localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+  document.getElementById('user-1').srcObject = localStream;
+  createOffer(true)
+}
+
+init();
