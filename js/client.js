@@ -1,31 +1,12 @@
+let socketConnected;
+let localUsername;
+let remoteUsername;
+
 let localStream;
 let remoteStream;
 let peerConnection;
 
 const socket = new WebSocket('ws://0.0.0.0:8080');
-
-socket.addEventListener('open', () => {
-    console.log('WS connection established');
-    socketConnected = true;
-    socket.send(JSON.stringify({
-        message: 'Confirmed connection'
-    }));
-})
-
-socket.addEventListener('message', ({ data }) => {
-    const packet = JSON.parse(data);
-    console.log(packet);
-});
-
-socket.addEventListener('close', () => {
-    console.log('WS disconnected');
-    socketConnected = false;
-    socket.close();
-});
-
-
-
-
 
 const servers = {
   iceServers: [
@@ -34,6 +15,14 @@ const servers = {
     },
   ],
 };
+
+function send(message) {
+  //attach the other peer username to our messages
+  if (localUsername) {
+    message.name = localUsername;
+  }
+  socket.send(JSON.stringify(message));
+}
 
 const init = async () => {
   localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
@@ -68,5 +57,48 @@ const createOffer = async () => {
   console.log('Offer:');
   console.log(offer);
 };
+
+socket.addEventListener('open', () => {
+  console.log('WS connection established');
+  socketConnected = true;
+  socket.send(JSON.stringify({
+    message: 'Confirmed connection'
+  }));
+})
+
+socket.addEventListener('message', ({ data }) => {
+  const packet = JSON.parse(data);
+  console.log(packet);
+
+  switch (packet.type) {
+    case 'login':
+      handleLogin(data.success);
+      break;
+    case 'offer':
+      handleOffer(data.offer, data.name);
+      break;
+    case 'answer':
+      handleAnswer(data.answer);
+      break;
+    case 'candidate':
+      handleCandidate(data.candidate);
+      break;
+    case 'leave':
+      handleLeave();
+      break;
+    default:
+      break;
+  }
+});
+
+socket.addEventListener('error', (err) => {
+  console.log(err);
+});
+
+socket.addEventListener('close', () => {
+  console.log('WS disconnected');
+  socketConnected = false;
+  socket.close();
+});
 
 init();
