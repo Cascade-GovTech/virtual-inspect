@@ -39,21 +39,50 @@ socket.on('connection', (ws) => {
     
     console.log(data);
 
+    let user;
+
     switch (data.type) {
       case 'login':
-        console.log(`User "${data.name}" logged in`);
+        console.log(`User "${data.name}" logged`);
+        if (users[data.name]) {
+          // already a user with this username
+          sendTo(ws, { type: 'login', success: false });
+        } else {
+          // save user to server
+          users[data.name] = ws;
+          ws.name = data.name;
+          sendTo(ws, { type: 'login', success: true });
+        }
         break;
       case 'offer':
         console.log(`Sending offer to user "${data.name}"`);
+        user = users[data.name];
+        if (user) {
+          ws.remoteUser = data.name;
+          sendTo(user, { type: 'offer', offer: data.offer, name: ws.name });
+        }
         break;
       case 'answer':
         console.log(`Sending answer to user "${data.name}"`);
+        user = users[data.name];
+        if (user) {
+          ws.remoteUser = data.name;
+          sendTo(user, { type: 'answer', offer: data.answer, name: ws.name });
+        }
         break;
       case 'candidate':
         console.log(`Sending candidate to user "${data.name}"`);
+        user = users[data.name];
+        if (user) {
+          sendTo(user, { type: 'candidate', offer: data.candidate });
+        }
         break;
       case 'leave':
         console.log(`Disconnecting from user "${data.name}"`);
+        user = users[data.name];
+        if (user) {
+          sendTo(user, { type: 'leave' });
+        }
         break;
       default:
         sendTo(ws, { type: 'error', message: `Command not found: "${data.type}"` });
@@ -67,12 +96,15 @@ socket.on('connection', (ws) => {
 
       if (ws.remoteName) {
         console.log(`Disconnecting from user "${ws.remoteName}"`);
-        
+        const user = users[data.remoteName];
+        if (user) {
+          sendTo(user, { type: 'leave' });
+        }
       }
     }
   });
 
-  ws.send('connected');
+  ws.send(JSON.stringify({ msg: 'connected' }));
 });
 
 app.listen(httpPort, () => console.log(`Server started on port ${httpPort}`));

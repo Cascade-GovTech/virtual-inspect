@@ -1,6 +1,6 @@
 let socketConnected;
-let localUsername;
-let remoteUsername;
+let username;
+let remoteUser;
 
 let localStream;
 let remoteStream;
@@ -9,28 +9,24 @@ let peerConnection;
 const socket = new WebSocket('ws://0.0.0.0:8080');
 
 const servers = {
-  iceServers: [
-    {
+  iceServers: [{
       urls: ['stun:stun1.l.google.com:19302', 'stun:stun2.l.google.com:19302'],
-    },
-  ],
+  }],
 };
 
 function send(message) {
-  //attach the other peer username to our messages
-  if (localUsername) {
-    message.name = localUsername;
+  if (username) {
+    message.name = username;
   }
   socket.send(JSON.stringify(message));
 }
 
-const init = async () => {
+const createOffer = async (success) => {
   localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
-  document.getElementById('user-1').srcObject = localStream;
-  createOffer();
-};
-
-const createOffer = async () => {
+  if (!success) {
+    alert('Unable to create offer');
+    return;
+  }
   peerConnection = new RTCPeerConnection(servers);
   remoteStream = new MediaStream();
 
@@ -49,6 +45,7 @@ const createOffer = async () => {
   peerConnection.onicecandidate = async (e) => {
     if (e.candidate) {
       console.log('New ICE candidate: ', event.candidate);
+      send({ type: 'candidate', candidate: event.candidate });
     }
   }
   let offer = await peerConnection.createOffer();
@@ -67,12 +64,13 @@ socket.addEventListener('open', () => {
 })
 
 socket.addEventListener('message', ({ data }) => {
+  console.log(data)
   const packet = JSON.parse(data);
   console.log(packet);
 
   switch (packet.type) {
     case 'login':
-      handleLogin(data.success);
+      createOffer(data.success);
       break;
     case 'offer':
       handleOffer(data.offer, data.name);
@@ -101,4 +99,4 @@ socket.addEventListener('close', () => {
   socket.close();
 });
 
-init();
+createOffer(true)
