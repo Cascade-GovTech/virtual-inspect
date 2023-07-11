@@ -14,6 +14,16 @@ const servers = {
   }],
 };
 
+async function handleLogin(e) {
+  e.preventDefault();
+  username = document.getElementById('username').value;
+  localStream = await navigator.mediaDevices.getUserMedia({video: true, audio: false})
+  document.getElementById('user-1').srcObject = localStream;
+  send({type: 'login'});
+  document.getElementById('loginForm').style.display = 'none';
+  document.getElementById('videos').style.display = '';
+}
+
 function send(message) {
   if (username) {
     message.name = username;
@@ -80,21 +90,20 @@ socket.addEventListener('open', () => {
 })
 
 socket.addEventListener('message', ({ data }) => {
-  const packet = JSON.parse(data);
-  console.log(packet);
+  const jsonData = JSON.parse(data);
 
-  switch (packet.type) {
+  switch (jsonData.type) {
     case 'login':
-      createOffer(data.success);
+      createOffer(jsonData.success);
       break;
     case 'offer':
-      handleOffer(data.offer, data.name);
+      handleOffer(jsonData.offer, jsonData.name);
       break;
     case 'answer':
-      handleAnswer(data.answer);
+      handleAnswer(jsonData.answer);
       break;
     case 'candidate':
-      handleCandidate(data.candidate);
+      handleCandidate(jsonData.candidate);
       break;
     case 'leave':
       handleLeave();
@@ -113,11 +122,3 @@ socket.addEventListener('close', () => {
   socketConnected = false;
   socket.close();
 });
-
-const init = async () => {
-  localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
-  document.getElementById('user-1').srcObject = localStream;
-  createOffer(true)
-}
-
-init();
