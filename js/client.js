@@ -14,12 +14,12 @@ const servers = {
   }],
 };
 
-async function handleLogin(e) {
+async function handleJoinRoom(e) {
   e.preventDefault();
-  username = document.getElementById('username').value;
+  username = document.getElementById('roomName').value;
   localStream = await navigator.mediaDevices.getUserMedia({video: true, audio: false})
-  document.getElementById('user-1').srcObject = localStream;
-  send({type: 'login'});
+  document.getElementById('host').srcObject = localStream;
+  send({type: 'join'});
   document.getElementById('loginForm').style.display = 'none';
   document.getElementById('videos').style.display = '';
 }
@@ -35,7 +35,7 @@ const createPeerConnection = async () => {
   peerConnection = new RTCPeerConnection(servers);
   remoteStream = new MediaStream();
 
-  document.getElementById('user-2').srcObject = remoteStream;
+  document.getElementById('guest').srcObject = remoteStream;
 
   localStream.getTracks().forEach((track) => {
     peerConnection.addTrack(track, localStream);
@@ -55,29 +55,61 @@ const createPeerConnection = async () => {
   }
 };
 
-const createOffer = async (success) => {
+async function createOffer(success) {
   if (!success) {
     alert('Unable to create offer');
     return;
   }
   await createPeerConnection();
-  let offer = await peerConnection.createOffer();
-  await peerConnection.setLocalDescription(offer);
+  await peerConnection.createOffer((offer) => {
+    peerConnection.setLocalDescription(offer);
 
-  console.log('Offer:');
-  console.log(offer);
+    console.log('Offer:');
+    console.log(offer);
 
-  send({ type: 'offer', offer: offer });
-};
+    send({ type: 'offer', offer: offer });
+  });
+}
 
-const createAnswer = async (offer) => {
+async function handleOffer(offer, name) {
   await createPeerConnection();
   await peerConnection.setRemoteDescription(offer);
 
-  const answer = await peerConnection.createAnswer();
-  await peerConnection.setLocalDescription(answer);
+  console.log('received offer')
 
-  send({ type: 'answer', answer: answer });
+  //create an answer to an offer
+  await peerConnection.createAnswer((answer) => {
+    peerConnection.setLocalDescription(answer);
+
+    console.log('Answer:');
+    console.log(answer);
+
+    send({
+      type: "answer",
+      answer: answer
+    });
+
+  }, (error) => {
+    alert("Error when creating an answer");
+  });
+}
+
+function handleAnswer(answer) {
+  peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
+  console.log('Answer:');
+  console.log(answer);
+}
+
+function handleCandidate(candidate) {
+  peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+  console.log('received ice candidate')
+}
+
+function handleLeave() {
+
+  peerConnection.close();
+  peerConnection.onicecandidate = null;
+  peerConnection.onaddstream = null;
 };
 
 socket.addEventListener('open', () => {
@@ -93,7 +125,7 @@ socket.addEventListener('message', ({ data }) => {
   const jsonData = JSON.parse(data);
 
   switch (jsonData.type) {
-    case 'login':
+    case 'create':
       createOffer(jsonData.success);
       break;
     case 'offer':

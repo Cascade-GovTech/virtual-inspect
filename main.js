@@ -6,7 +6,7 @@ const httpPort = 5000;
 const socket = new WebSocketServer({ port: 8080 });
 const app = express();
 
-const users = {};
+const rooms = {};
 
 function sendTo(connection, msg) {
   connection.send(JSON.stringify(msg));
@@ -16,8 +16,6 @@ app.use(express.json());
 app.set('view engine', 'ejs');
 app.use(express.static(`${url.fileURLToPath(new URL('.', import.meta.url))}/js`));
 app.use(express.static(`${url.fileURLToPath(new URL('.', import.meta.url))}/public`));
-
-console.log();
 
 app.get('/', (req, res) => {
   res.render('index');
@@ -41,46 +39,44 @@ socket.on('connection', (ws) => {
     console.log(data);
 
     let user;
-
     switch (data.type) {
-      case 'login':
-        console.log(`User "${data.name}" logged`);
-        if (users[data.name]) {
-          // already a user with this username
-          sendTo(ws, { type: 'login', success: false });
+      case 'join':
+        console.log(`User joined room "${data.name}"`);
+        if (rooms[data.name]) {
+          // already a user in this room, send stored offer
+          console.log(`Sending offer to guest of room "${data.name}"`);
+          sendTo(ws, {
+            type: 'offer',
+            offer: rooms[data.name].offer,
+            host: rooms[data.name].host,
+          });
         } else {
-          // save user to server
-          users[data.name] = ws;
-          ws.name = data.name;
-          sendTo(ws, { type: 'login', success: true });
+          // create a new room
+          rooms[data.name] = ws;
+          ws.host = data.name;
+          sendTo(ws, { type: 'create', success: true });
         }
         break;
       case 'offer':
-        console.log(`Sending offer to user "${data.name}"`);
-        user = users[data.name];
-        if (user) {
-          ws.remoteUser = data.name;
-          sendTo(user, { type: 'offer', offer: data.offer, name: ws.name });
-        }
+        console.log(`Saving offer for room "${data.name}"`);
+        rooms[data.name].offer = data.offer;
         break;
       case 'answer':
-        console.log(`Sending answer to user "${data.name}"`);
-        user = users[data.name];
-        if (user) {
-          ws.remoteUser = data.name;
-          sendTo(user, { type: 'answer', answer: data.answer, name: ws.name });
-        }
+        console.log(`Sending answer to host of room "${data.name}"`);
+        ws.guest = data.name;
+        sendTo(rooms[data.name], { type: 'answer', answer: data.answer, name: ws.name });
         break;
       case 'candidate':
-        console.log(`Sending candidate to user "${data.name}"`);
-        user = users[data.name];
-        if (user) {
-          sendTo(user, { type: 'candidate', candidate: data.candidate });
+        console.log(`Saving candidates for room "${data.name}"`);
+        if (rooms[data.name].candidates) {
+          rooms[data.name].candidates.push(data.candidate);
+        } else {
+          rooms[data.name].candidates = [];
         }
         break;
       case 'leave':
         console.log(`Disconnecting from user "${data.name}"`);
-        user = users[data.name];
+        user = rooms[data.name];
         if (user) {
           sendTo(user, { type: 'leave' });
         }
@@ -98,11 +94,11 @@ socket.on('connection', (ws) => {
   
   ws.on('close', () => {
     if (ws.name) {
-      delete users[ws.name];
+      delete rooms[ws.name];
 
       if (ws.remoteName) {
         console.log(`Disconnecting from user "${ws.remoteName}"`);
-        const user = users[data.remoteName];
+        const user = rooms[data.remoteName];
         if (user) {
           sendTo(user, { type: 'leave' });
         }
