@@ -50,10 +50,13 @@ socket.on('connection', (ws) => {
             offer: rooms[data.name].offer,
             host: rooms[data.name].host,
           });
+          for (const candidate of rooms[data.name].candidates) {
+            sendTo(ws, { type: 'candidate', candidate });
+          }
         } else {
           // create a new room
+          console.log('User is host')
           rooms[data.name] = ws;
-          ws.host = data.name;
           sendTo(ws, { type: 'create', success: true });
         }
         break;
@@ -66,13 +69,18 @@ socket.on('connection', (ws) => {
         ws.guest = data.name;
         sendTo(rooms[data.name], { type: 'answer', answer: data.answer, name: ws.name });
         break;
-      case 'candidate':
+      case 'hostCandidate':
         console.log(`Saving candidates for room "${data.name}"`);
         if (rooms[data.name].candidates) {
           rooms[data.name].candidates.push(data.candidate);
         } else {
           rooms[data.name].candidates = [];
+          rooms[data.name].candidates.push(data.candidate);
         }
+        break;
+      case 'guestCandidate':
+        console.log('Sending candidates to host');
+        sendTo(rooms[data.name], { type: 'candidate', candidate: data.candidate });
         break;
       case 'leave':
         console.log(`Disconnecting from user "${data.name}"`);

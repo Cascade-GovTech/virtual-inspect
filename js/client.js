@@ -1,13 +1,12 @@
 let socketConnected;
-let username;
-let remoteUser;
+let roomName;
 
 let localStream;
 let remoteStream;
 let peerConnection;
 
-const socket = new WebSocket('ws://0.0.0.0:8080');
-
+const socket = new WebSocket(`ws://${window.location.hostname}:8080`);
+console.log(window.location.hostname)
 const servers = {
   iceServers: [{
       urls: ['stun:stun1.l.google.com:19302', 'stun:stun2.l.google.com:19302'],
@@ -16,8 +15,8 @@ const servers = {
 
 async function handleJoinRoom(e) {
   e.preventDefault();
-  username = document.getElementById('roomName').value;
-  localStream = await navigator.mediaDevices.getUserMedia({video: true, audio: false})
+  roomName = document.getElementById('roomName').value;
+  localStream = await navigator.mediaDevices.getUserMedia({video: true, audio: false});
   document.getElementById('host').srcObject = localStream;
   send({type: 'join'});
   document.getElementById('loginForm').style.display = 'none';
@@ -25,8 +24,8 @@ async function handleJoinRoom(e) {
 }
 
 function send(message) {
-  if (username) {
-    message.name = username;
+  if (roomName) {
+    message.name = roomName;
   }
   socket.send(JSON.stringify(message));
 }
@@ -46,13 +45,6 @@ const createPeerConnection = async () => {
       remoteStream.addTrack(track);
     });
   }
-
-  peerConnection.onicecandidate = async (e) => {
-    if (e.candidate) {
-      console.log('New ICE candidate: ', event.candidate);
-      send({ type: 'candidate', candidate: event.candidate });
-    }
-  }
 };
 
 async function createOffer(success) {
@@ -61,18 +53,31 @@ async function createOffer(success) {
     return;
   }
   await createPeerConnection();
-  await peerConnection.createOffer((offer) => {
-    peerConnection.setLocalDescription(offer);
 
-    console.log('Offer:');
-    console.log(offer);
+  peerConnection.onicecandidate = async (e) => {
+    if (e.candidate) {
+      console.log('New ICE candidate: ', e.candidate);
+      send({ type: 'hostCandidate', candidate: e.candidate });
+    }
+  }
 
-    send({ type: 'offer', offer: offer });
-  });
+  const offer = await peerConnection.createOffer();
+  await peerConnection.setLocalDescription(offer);
+
+  send({type: 'offer', offer: offer});
+
 }
 
 async function handleOffer(offer, name) {
   await createPeerConnection();
+
+  peerConnection.onicecandidate = async (e) => {
+    if (e.candidate) {
+      console.log('New ICE candidate: ', e.candidate);
+      send({ type: 'guestCandidate', candidate: e.candidate });
+    }
+  }
+
   await peerConnection.setRemoteDescription(offer);
 
   console.log('received offer')
@@ -95,13 +100,11 @@ async function handleOffer(offer, name) {
 }
 
 function handleAnswer(answer) {
-  peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
-  console.log('Answer:');
-  console.log(answer);
+  peerConnection.setRemoteDescription(answer);
 }
 
 function handleCandidate(candidate) {
-  peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+  peerConnection.addIceCandidate(candidate);
   console.log('received ice candidate')
 }
 
