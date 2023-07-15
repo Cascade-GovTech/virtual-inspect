@@ -5,8 +5,8 @@ let localStream;
 let remoteStream;
 let peerConnection;
 
-const socket = new WebSocket(`ws://${window.location.hostname}:8080`);
-console.log(window.location.hostname)
+const socket = new WebSocket(`wss://${window.location.hostname}:5000`);
+
 const servers = {
   iceServers: [{
       urls: ['stun:stun1.l.google.com:19302', 'stun:stun2.l.google.com:19302'],
