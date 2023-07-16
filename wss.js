@@ -3,8 +3,6 @@ import https from 'https';
 import app from './main.js';
 import serverConfig from './config.js';
 
-console.log(serverConfig);
-
 const rooms = {};
 
 const server = https.createServer(serverConfig);
@@ -97,7 +95,7 @@ socket.on('connection', (ws) => {
     if (ws.roomName) {
       // we're the host, alert guest and delete the room
       if (rooms[ws.roomName].guest) {
-        sendTo(rooms[ws.roomName], {type: 'leave'});
+        sendTo(rooms[ws.roomName].guest, {type: 'leave'});
         console.log('Sent leave message to guest');
       }
       delete rooms[ws.roomName];

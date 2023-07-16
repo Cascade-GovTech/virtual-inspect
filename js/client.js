@@ -20,8 +20,8 @@ async function handleJoinRoom(e) {
   document.getElementById('host').srcObject = localStream;
   send({type: 'join'});
   document.getElementById('loginForm').style.display = 'none';
-  document.getElementById('videos').style.display = '';
-  document.getElementById('roomName').innerHTML = roomName;
+  document.getElementById('roomDisplay').style.display = '';
+  document.getElementById('showRoomName').textContent = roomName;
 }
 
 function send(message) {
@@ -83,19 +83,18 @@ async function handleOffer(offer) {
 
   await peerConnection.setRemoteDescription(offer);
 
-  console.log('received offer')
+  console.log('Received offer')
 
   //create an answer to an offer
   await peerConnection.createAnswer((answer) => {
     peerConnection.setLocalDescription(answer);
 
-    console.log('Answer:');
-    console.log(answer);
-
     send({
       type: "answer",
       answer: answer
     });
+
+    console.log('Sent answer to server');
 
     document.getElementById('status').innerHTML = 'Connected';
 

@@ -17,10 +17,12 @@
       <input type="submit" class="btn btn-primary w-100 mt-3" value="Enter" />
     </form>
   </div>
-  <div id="videos" style="display: none;">
-    <h3>Room Name: "<span id="roomName"></span>"</h3>
-    <video class="video-player" id="host" autoplay playsinline></video>
-    <video class="video-player" id="guest" autoplay playsinline></video>
+  <div id="roomDisplay" style="display: none;">
+    <h3>Room Name: "<span id="showRoomName"></span>"</h3>
+    <div id="videos">
+      <video class="video-player" id="host" autoplay playsinline></video>
+      <video class="video-player" id="guest" autoplay playsinline></video>
+    </div>
     Status: <span id="status"></span>
   </div>
   <script src="client.js"></script>
