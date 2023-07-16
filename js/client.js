@@ -16,11 +16,12 @@ const servers = {
 async function handleJoinRoom(e) {
   e.preventDefault();
   roomName = document.getElementById('roomName').value;
-  localStream = await navigator.mediaDevices.getUserMedia({video: true, audio: false});
+  localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
   document.getElementById('host').srcObject = localStream;
   send({type: 'join'});
   document.getElementById('loginForm').style.display = 'none';
   document.getElementById('videos').style.display = '';
+  document.getElementById('roomName').innerHTML = roomName;
 }
 
 function send(message) {
@@ -56,8 +57,8 @@ async function createOffer(success) {
 
   peerConnection.onicecandidate = async (e) => {
     if (e.candidate) {
-      console.log('New ICE candidate: ', e.candidate);
       send({ type: 'hostCandidate', candidate: e.candidate });
+      console.log('New ICE candidate sent');
     }
   }
 
@@ -66,17 +67,19 @@ async function createOffer(success) {
 
   send({type: 'offer', offer: offer});
 
+  document.getElementById('status').innerHTML = 'Awaiting guest';
 }
 
-async function handleOffer(offer, name) {
+async function handleOffer(offer) {
   await createPeerConnection();
 
   peerConnection.onicecandidate = async (e) => {
     if (e.candidate) {
-      console.log('New ICE candidate: ', e.candidate);
       send({ type: 'guestCandidate', candidate: e.candidate });
+      console.log('New ICE candidate sent');
     }
   }
+  document.getElementById('status').innerHTML = 'Joining..';
 
   await peerConnection.setRemoteDescription(offer);
 
@@ -94,6 +97,8 @@ async function handleOffer(offer, name) {
       answer: answer
     });
 
+    document.getElementById('status').innerHTML = 'Connected';
+
   }, (error) => {
     alert("Error when creating an answer");
   });
@@ -101,6 +106,7 @@ async function handleOffer(offer, name) {
 
 function handleAnswer(answer) {
   peerConnection.setRemoteDescription(answer);
+  document.getElementById('status').innerHTML = 'Connected';
 }
 
 function handleCandidate(candidate) {
@@ -109,11 +115,11 @@ function handleCandidate(candidate) {
 }
 
 function handleLeave() {
-
   peerConnection.close();
   peerConnection.onicecandidate = null;
   peerConnection.onaddstream = null;
-};
+  document.getElementById('status').innerHTML = 'User disconnected';
+}
 
 socket.addEventListener('open', () => {
   console.log('WS connection established');
@@ -122,7 +128,7 @@ socket.addEventListener('open', () => {
     type: 'status',
     message: 'Confirmed connection',
   }));
-})
+});
 
 socket.addEventListener('message', ({ data }) => {
   const jsonData = JSON.parse(data);
@@ -132,7 +138,7 @@ socket.addEventListener('message', ({ data }) => {
       createOffer(jsonData.success);
       break;
     case 'offer':
-      handleOffer(jsonData.offer, jsonData.name);
+      handleOffer(jsonData.offer);
       break;
     case 'answer':
       handleAnswer(jsonData.answer);

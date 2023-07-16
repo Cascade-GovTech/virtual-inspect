@@ -31,10 +31,7 @@ socket.on('connection', (ws) => {
       console.log("Invalid JSON");
       data = {};
     }
-    
-    console.log(data);
 
-    let user;
     switch (data.type) {
       case 'join':
         console.log(`User joined room "${data.name}"`);
@@ -44,16 +41,17 @@ socket.on('connection', (ws) => {
           sendTo(ws, {
             type: 'offer',
             offer: rooms[data.name].offer,
-            host: rooms[data.name].host,
           });
           for (const candidate of rooms[data.name].candidates) {
             sendTo(ws, { type: 'candidate', candidate });
           }
+          rooms[data.name].guest = ws;
         } else {
           // create a new room
           console.log('User is host')
           rooms[data.name] = ws;
           sendTo(ws, { type: 'create', success: true });
+          ws.roomName = data.name;
         }
         break;
       case 'offer':
@@ -62,8 +60,7 @@ socket.on('connection', (ws) => {
         break;
       case 'answer':
         console.log(`Sending answer to host of room "${data.name}"`);
-        ws.guest = data.name;
-        sendTo(rooms[data.name], { type: 'answer', answer: data.answer, name: ws.name });
+        sendTo(rooms[data.name], { type: 'answer', answer: data.answer });
         break;
       case 'hostCandidate':
         console.log(`Saving candidates for room "${data.name}"`);
@@ -79,10 +76,10 @@ socket.on('connection', (ws) => {
         sendTo(rooms[data.name], { type: 'candidate', candidate: data.candidate });
         break;
       case 'leave':
-        console.log(`Disconnecting from user "${data.name}"`);
-        user = rooms[data.name];
-        if (user) {
-          sendTo(user, { type: 'leave' });
+        console.log(`Disconnecting from room "${data.name}"`);
+        const roomHost = rooms[data.name];
+        if (roomHost) {
+          sendTo(roomHost, { type: 'leave' });
         }
         break;
       case 'status':
@@ -97,16 +94,13 @@ socket.on('connection', (ws) => {
   });
   
   ws.on('close', () => {
-    if (ws.name) {
-      delete rooms[ws.name];
-
-      if (ws.remoteName) {
-        console.log(`Disconnecting from user "${ws.remoteName}"`);
-        const user = rooms[data.remoteName];
-        if (user) {
-          sendTo(user, { type: 'leave' });
-        }
+    if (ws.roomName) {
+      // we're the host, alert guest and delete the room
+      if (rooms[ws.roomName].guest) {
+        sendTo(rooms[ws.roomName], {type: 'leave'});
+        console.log('Sent leave message to guest');
       }
+      delete rooms[ws.roomName];
     }
   });
 
