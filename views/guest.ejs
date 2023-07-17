@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <%- include('./components/head'); %>
+  <link rel="stylesheet" type="text/css" media="screen" href="../main.css">
+</head>
+<body style="height: 100vh;" class="d-flex">
+  <div class="m-auto pb-5" id="loginForm">
+      <div class="text-center mb-1">Join video call</div>
+      <button type="button" class="btn btn-primary w-100 mt-3" onclick="handleJoinRoom()">Join</button>
+  </div>
+  <div id="roomDisplay" style="display: none;">
+    <h6>Room ID: <span id="showRoomName"></span></h6>
+    <p>Shareable link: <span id="shareLink"></span></p>
+    <div id="video">
+      <video id="host" autoplay playsinline hidden></video>
+      <video class="video-player" id="guest" autoplay playsinline></video>
+    </div>
+    Status: <span id="status">Connecting...</span>
+  </div>
+  <script type="text/javascript" src="../client.js"></script>
+</body>
+</html>

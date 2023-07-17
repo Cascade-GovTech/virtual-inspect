@@ -1,11 +1,9 @@
-let socketConnected;
-let roomName;
-
+let roomId;
 let localStream;
 let remoteStream;
 let peerConnection;
 
-const socket = new WebSocket(`wss://${window.location.hostname}:5000`);
+const socket = new WebSocket(`ws://${window.location.hostname}:8080`);
 
 const servers = {
   iceServers: [{
@@ -13,22 +11,29 @@ const servers = {
   }],
 };
 
-async function handleJoinRoom(e) {
-  e.preventDefault();
-  roomName = document.getElementById('roomName').value;
-  localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
-  document.getElementById('host').srcObject = localStream;
-  send({type: 'join'});
-  document.getElementById('loginForm').style.display = 'none';
-  document.getElementById('roomDisplay').style.display = '';
-  document.getElementById('showRoomName').textContent = roomName;
-}
-
 function send(message) {
-  if (roomName) {
-    message.name = roomName;
+  if (roomId) {
+    message.roomId = roomId;
   }
   socket.send(JSON.stringify(message));
+}
+
+async function handleCreateRoom() {
+  roomId = Math.floor(Math.random() * 100000000);
+  send({ type: 'join' });
+  localStream = await navigator.mediaDevices.getUserMedia({ video: false, audio: true });
+  document.getElementById('loginForm').style.display = 'none';
+  document.getElementById('roomDisplay').style.display = '';
+  document.getElementById('showRoomName').textContent = roomId;
+  document.getElementById('shareLink').textContent = `http://${window.location.hostname}:5000/inspection/${roomId}`;
+}
+
+async function handleJoinRoom() {
+  localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+  document.getElementById('host').srcObject = localStream;
+  roomId = window.location.pathname.substring(12);
+  send({ type: 'join', roomId });
+  console.log('sending join to wss')
 }
 
 const createPeerConnection = async () => {
@@ -36,10 +41,6 @@ const createPeerConnection = async () => {
   remoteStream = new MediaStream();
 
   document.getElementById('guest').srcObject = remoteStream;
-
-  localStream.getTracks().forEach((track) => {
-    peerConnection.addTrack(track, localStream);
-  });
 
   peerConnection.ontrack = (e) => {
     e.streams[0].getTracks().forEach((track) => {
@@ -122,7 +123,6 @@ function handleLeave() {
 
 socket.addEventListener('open', () => {
   console.log('WS connection established');
-  socketConnected = true;
   socket.send(JSON.stringify({
     type: 'status',
     message: 'Confirmed connection',
@@ -159,6 +159,5 @@ socket.addEventListener('error', (err) => {
 
 socket.addEventListener('close', () => {
   console.log('WS disconnected');
-  socketConnected = false;
   socket.close();
 });

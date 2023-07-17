@@ -1,19 +1,19 @@
 import { WebSocketServer } from 'ws';
-import https from 'https';
+// import https from 'https';
 import app from './main.js';
-import serverConfig from './config.js';
+import { getRooms, addRoom, removeRoom } from './rooms.js';
+// import serverConfig from './config.js';
 
-const rooms = {};
+// const server = https.createServer(serverConfig);
 
-const server = https.createServer(serverConfig);
-
-const socket = new WebSocketServer({ server: server });
+// const socket = new WebSocketServer({ server: server });
+const socket = new WebSocketServer({ port: 8080 });
 
 function sendTo(connection, msg) {
   connection.send(JSON.stringify(msg));
 }
 
-server.on('request', app);
+// server.on('request', app);
 
 socket.on('connection', (ws) => {
   console.log('User connected');
@@ -30,52 +30,53 @@ socket.on('connection', (ws) => {
       data = {};
     }
 
+    const rooms = getRooms();
     switch (data.type) {
       case 'join':
-        console.log(`User joined room "${data.name}"`);
-        if (rooms[data.name]) {
+        console.log(`User joined room "${data.roomId}"`);
+        if (rooms[data.roomId]) {
           // already a user in this room, send stored offer
-          console.log(`Sending offer to guest of room "${data.name}"`);
+          console.log(`Sending offer to guest of room "${data.roomId}"`);
           sendTo(ws, {
             type: 'offer',
-            offer: rooms[data.name].offer,
+            offer: rooms[data.roomId].offer,
           });
-          for (const candidate of rooms[data.name].candidates) {
+          for (const candidate of rooms[data.roomId].candidates) {
             sendTo(ws, { type: 'candidate', candidate });
           }
-          rooms[data.name].guest = ws;
+          rooms[data.roomId].guest = ws;
         } else {
           // create a new room
           console.log('User is host')
-          rooms[data.name] = ws;
+          addRoom(data.roomId, ws);
           sendTo(ws, { type: 'create', success: true });
-          ws.roomName = data.name;
+          ws.roomName = data.roomId;
         }
         break;
       case 'offer':
-        console.log(`Saving offer for room "${data.name}"`);
-        rooms[data.name].offer = data.offer;
+        console.log(`Saving offer for room "${data.roomId}"`);
+        rooms[data.roomId].offer = data.offer;
         break;
       case 'answer':
-        console.log(`Sending answer to host of room "${data.name}"`);
-        sendTo(rooms[data.name], { type: 'answer', answer: data.answer });
+        console.log(`Sending answer to host of room "${data.roomId}"`);
+        sendTo(rooms[data.roomId], { type: 'answer', answer: data.answer });
         break;
       case 'hostCandidate':
-        console.log(`Saving candidates for room "${data.name}"`);
-        if (rooms[data.name].candidates) {
-          rooms[data.name].candidates.push(data.candidate);
+        console.log(`Saving candidates for room "${data.roomId}"`);
+        if (rooms[data.roomId].candidates) {
+          rooms[data.roomId].candidates.push(data.candidate);
         } else {
-          rooms[data.name].candidates = [];
-          rooms[data.name].candidates.push(data.candidate);
+          rooms[data.roomId].candidates = [];
+          rooms[data.roomId].candidates.push(data.candidate);
         }
         break;
       case 'guestCandidate':
         console.log('Sending candidates to host');
-        sendTo(rooms[data.name], { type: 'candidate', candidate: data.candidate });
+        sendTo(rooms[data.roomId], { type: 'candidate', candidate: data.candidate });
         break;
       case 'leave':
-        console.log(`Disconnecting from room "${data.name}"`);
-        const roomHost = rooms[data.name];
+        console.log(`Disconnecting from room "${data.roomId}"`);
+        const roomHost = rooms[data.roomId];
         if (roomHost) {
           sendTo(roomHost, { type: 'leave' });
         }
@@ -93,17 +94,19 @@ socket.on('connection', (ws) => {
   
   ws.on('close', () => {
     if (ws.roomName) {
+      const rooms = getRooms();
       // we're the host, alert guest and delete the room
       if (rooms[ws.roomName].guest) {
         sendTo(rooms[ws.roomName].guest, {type: 'leave'});
         console.log('Sent leave message to guest');
       }
-      delete rooms[ws.roomName];
+      removeRoom(ws.roomName);
     }
   });
 
   ws.send(JSON.stringify({ msg: 'connected' }));
 });
 
-server.listen(5000);
+// server.listen(5000);
+app.listen(5000);
 console.log('Server started on port 5000');
