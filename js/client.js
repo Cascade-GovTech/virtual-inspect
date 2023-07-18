@@ -3,7 +3,7 @@ let localStream;
 let remoteStream;
 let peerConnection;
 
-const socket = new WebSocket(`ws://${window.location.hostname}:8080`);
+const socket = new WebSocket(`wss://${window.location.hostname}:5000`);
 
 const servers = {
   iceServers: [{
@@ -20,27 +20,36 @@ function send(message) {
 
 async function handleCreateRoom() {
   roomId = Math.floor(Math.random() * 100000000);
+  localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
   send({ type: 'join' });
-  localStream = await navigator.mediaDevices.getUserMedia({ video: false, audio: true });
   document.getElementById('loginForm').style.display = 'none';
   document.getElementById('roomDisplay').style.display = '';
   document.getElementById('showRoomName').textContent = roomId;
-  document.getElementById('shareLink').textContent = `http://${window.location.hostname}:5000/inspection/${roomId}`;
+  document.getElementById('shareLink').textContent = `https://${window.location.hostname}:5000/inspection/${roomId}`;
 }
 
 async function handleJoinRoom() {
-  localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-  document.getElementById('host').srcObject = localStream;
+  localStream = await navigator.mediaDevices.getUserMedia({
+    audio: true,
+    video: {
+      facingMode: 'environment',
+    },
+  });
   roomId = window.location.pathname.substring(12);
   send({ type: 'join', roomId });
-  console.log('sending join to wss')
+  document.getElementById('host').srcObject = remoteStream;
+  document.getElementById('loginForm').style.display = 'none';
+  document.getElementById('roomDisplay').style.display = '';
+  document.getElementById('local').srcObject = localStream;
 }
 
 const createPeerConnection = async () => {
   peerConnection = new RTCPeerConnection(servers);
   remoteStream = new MediaStream();
 
-  document.getElementById('guest').srcObject = remoteStream;
+  localStream.getTracks().forEach((track) => {
+    peerConnection.addTrack(track, localStream);
+  });
 
   peerConnection.ontrack = (e) => {
     e.streams[0].getTracks().forEach((track) => {
@@ -54,7 +63,10 @@ async function createOffer(success) {
     alert('Unable to create offer');
     return;
   }
+  console.log('creating offer');
   await createPeerConnection();
+
+  document.getElementById('guest').srcObject = remoteStream;
 
   peerConnection.onicecandidate = async (e) => {
     if (e.candidate) {

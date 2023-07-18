@@ -1,19 +1,19 @@
 import { WebSocketServer } from 'ws';
-// import https from 'https';
+import https from 'https';
 import app from './main.js';
 import { getRooms, addRoom, removeRoom } from './rooms.js';
-// import serverConfig from './config.js';
+import serverConfig from './config.js';
 
-// const server = https.createServer(serverConfig);
+const server = https.createServer(serverConfig);
 
-// const socket = new WebSocketServer({ server: server });
-const socket = new WebSocketServer({ port: 8080 });
+const socket = new WebSocketServer({ server: server });
+// const socket = new WebSocketServer({ port: 8080 });
 
 function sendTo(connection, msg) {
   connection.send(JSON.stringify(msg));
 }
 
-// server.on('request', app);
+server.on('request', app);
 
 socket.on('connection', (ws) => {
   console.log('User connected');
@@ -107,6 +107,6 @@ socket.on('connection', (ws) => {
   ws.send(JSON.stringify({ msg: 'connected' }));
 });
 
-// server.listen(5000);
-app.listen(5000);
+server.listen(5000);
+// app.listen(5000);
 console.log('Server started on port 5000');
